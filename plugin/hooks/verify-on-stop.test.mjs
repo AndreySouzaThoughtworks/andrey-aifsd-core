@@ -40,7 +40,7 @@ const makeRepo = ({ dirty, pkg = true, lint = "true" }) => {
   return dir;
 };
 
-const run = (cwd, { verifyCmd, maxBlocks, sessionId } = {}) => {
+const run = (cwd, { verifyCmd, maxBlocks, sessionId, env = {} } = {}) => {
   const out = execFileSync("node", [HOOK], {
     cwd,
     encoding: "utf8",
@@ -52,6 +52,7 @@ const run = (cwd, { verifyCmd, maxBlocks, sessionId } = {}) => {
       ...process.env,
       ...(verifyCmd ? { AIFSD_VERIFY_CMD: verifyCmd } : {}),
       ...(maxBlocks ? { AIFSD_VERIFY_MAX_BLOCKS: String(maxBlocks) } : {}),
+      ...env,
     },
   });
   return out ? JSON.parse(out) : null; // null = allowed (empty stdout)
@@ -106,8 +107,38 @@ test("finds the Verification section in a CLAUDE.md above the repo", () => {
   renameSync(makeRepo({ dirty: true }), dir);
   writeFileSync(join(dir, "fail.sh"), "echo FROM_PARENT_MARKER\nexit 1\n");
   writeFileSync(join(parent, "CLAUDE.md"), VERIFICATION_SECTION("sh fail.sh"));
-  const result = run(dir);
+  const result = run(dir, { env: { HOME: parent } });
   assert.match(result?.reason ?? "", /FROM_PARENT_MARKER/, "the parent CLAUDE.md command must have run");
+});
+
+test("never reads a CLAUDE.md above the home folder", () => {
+  // Folders above home (or shared ones like /tmp) may be writable by other users.
+  const outer = mkdtempSync(join(tmpdir(), "aifsd-verify-outer-"));
+  const home = join(outer, "home");
+  mkdirSync(home);
+  const dir = join(home, "repo");
+  renameSync(makeRepo({ dirty: true }), dir);
+  writeFileSync(join(dir, "fail.sh"), "echo ABOVE_HOME_MARKER\nexit 1\n");
+  writeFileSync(join(outer, "CLAUDE.md"), VERIFICATION_SECTION("sh fail.sh"));
+  const result = run(dir, { env: { HOME: home } });
+  assert.doesNotMatch(result?.reason ?? "", /ABOVE_HOME_MARKER/, "a CLAUDE.md above home must not be read");
+});
+
+test("reads no CLAUDE.md at all for a repo outside the home folder", () => {
+  const parent = mkdtempSync(join(tmpdir(), "aifsd-verify-outside-"));
+  const dir = join(parent, "repo");
+  renameSync(makeRepo({ dirty: true }), dir);
+  writeFileSync(join(dir, "fail.sh"), "echo OUTSIDE_HOME_MARKER\nexit 1\n");
+  writeFileSync(join(parent, "CLAUDE.md"), VERIFICATION_SECTION("sh fail.sh"));
+  const result = run(dir, { env: { HOME: mkdtempSync(join(tmpdir(), "aifsd-verify-otherhome-")) } });
+  assert.doesNotMatch(result?.reason ?? "", /OUTSIDE_HOME_MARKER/, "no CLAUDE.md outside home may be read");
+});
+
+test("blocks with a timeout reason when the verify command hangs", () => {
+  const dir = makeRepo({ dirty: true });
+  const result = run(dir, { verifyCmd: "sleep 3", env: { AIFSD_VERIFY_TIMEOUT_MS: "200" } });
+  assert.equal(result?.decision, "block");
+  assert.match(result.reason, /timed out/);
 });
 
 test("AIFSD_VERIFY_CMD overrides the CLAUDE.md Verify command", () => {

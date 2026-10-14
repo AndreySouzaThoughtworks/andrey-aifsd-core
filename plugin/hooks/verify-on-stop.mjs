@@ -3,16 +3,19 @@
 // issues, but only when there are uncommitted changes. Plugin-safe (uses the
 // decision:"block" JSON path, not exit 2) and self-capping (won't loop forever).
 // Command: AIFSD_VERIFY_CMD, else the `## Verification` Verify command in the nearest CLAUDE.md
-// in a folder above the repo, else "pnpm lint". The repo's own CLAUDE.md is never read: a cloned
-// repo controls it, and this command runs unprompted at every turn end.
+// in a folder above the repo and inside the home folder, else "pnpm lint". The repo's own CLAUDE.md
+// is never read: a cloned repo controls it, and this command runs unprompted at every turn end.
+// Folders above or outside home are never read either: other users may write there.
 
 import { execFileSync, execSync } from "node:child_process";
-import { existsSync, readFileSync, writeFileSync, mkdirSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { dirname, extname, join, resolve } from "node:path";
+import { existsSync, readFileSync, realpathSync, writeFileSync, mkdirSync, rmSync } from "node:fs";
+import { homedir, tmpdir } from "node:os";
+import { dirname, extname, join, resolve, sep } from "node:path";
 
 const DEFAULT_VERIFY_CMD = "pnpm lint";
 const MAX_CONSECUTIVE_BLOCKS = Number(process.env.AIFSD_VERIFY_MAX_BLOCKS ?? 3);
+const TEN_MINUTES_MS = 10 * 60 * 1000;
+const VERIFY_TIMEOUT_MS = Number(process.env.AIFSD_VERIFY_TIMEOUT_MS ?? TEN_MINUTES_MS);
 
 // shortcut: `@path` imports inside CLAUDE.md are not followed; put `## Verification` in the CLAUDE.md itself.
 const repoRoot = () => {
@@ -23,8 +26,19 @@ const repoRoot = () => {
   }
 };
 
+const homeFolder = () => {
+  const home = process.env.HOME || homedir();
+  try {
+    return realpathSync(home);
+  } catch {
+    return resolve(home);
+  }
+};
+
 const verifyCmdFromInstructions = () => {
-  for (let dir = dirname(repoRoot()); ; dir = dirname(dir)) {
+  const home = homeFolder();
+  const insideHome = (dir) => dir === home || dir.startsWith(home + sep);
+  for (let dir = dirname(repoRoot()); insideHome(dir); dir = dirname(dir)) {
     try {
       const section = readFileSync(join(dir, "CLAUDE.md"), "utf8")
         .split(/^## /m)
@@ -32,8 +46,9 @@ const verifyCmdFromInstructions = () => {
       const cmd = section?.match(/\*\*Verify command:\*\*\s*`([^`]+)`/)?.[1];
       if (cmd) return cmd;
     } catch {}
-    if (dirname(dir) === dir) return undefined;
+    if (dir === home) return undefined;
   }
+  return undefined;
 };
 
 const VERIFY_CMD = process.env.AIFSD_VERIFY_CMD ?? verifyCmdFromInstructions() ?? DEFAULT_VERIFY_CMD;
@@ -180,7 +195,7 @@ const main = () => {
   if (released) allow();
 
   try {
-    execSync(VERIFY_CMD, { stdio: "pipe", cwd: process.cwd() });
+    execSync(VERIFY_CMD, { stdio: "pipe", cwd: process.cwd(), timeout: VERIFY_TIMEOUT_MS });
     resetCounter(counter);
     allow();
   } catch (error) {
@@ -191,8 +206,11 @@ const main = () => {
     }
     const output =
       (error.stdout?.toString() ?? "") + (error.stderr?.toString() ?? "");
+    const timedOut = error.code === "ETIMEDOUT" || error.signal === "SIGTERM";
     block(
-      `Verification gate (\`${VERIFY_CMD}\`) reported issues — fix them before ending the turn ` +
+      (timedOut
+        ? `Verification gate (\`${VERIFY_CMD}\`) timed out after ${VERIFY_TIMEOUT_MS} ms — make it finish before ending the turn `
+        : `Verification gate (\`${VERIFY_CMD}\`) reported issues — fix them before ending the turn `) +
         `(block ${blocks}/${MAX_CONSECUTIVE_BLOCKS}; the gate auto-releases after that). ` +
         `Show the passing output as evidence once fixed.\n\n${output.slice(-VERIFY_OUTPUT_TAIL)}`,
     );
