@@ -80,10 +80,15 @@ const resetCounter = (file) => {
   }
 };
 
+const untrackedFiles = () =>
+  execFileSync("git", ["ls-files", "--others", "--exclude-standard"], { encoding: "utf8" })
+    .split("\n")
+    .filter(Boolean);
+
 const hasUncommittedChanges = () => {
   try {
     execSync("git diff --quiet && git diff --cached --quiet", { stdio: "ignore" });
-    return false;
+    return untrackedFiles().length > 0;
   } catch {
     return true;
   }
@@ -131,7 +136,8 @@ const nothingLintableChanged = () => {
   try {
     const changed = execFileSync("git", ["diff", "--name-only", "HEAD"], { encoding: "utf8" })
       .split("\n")
-      .filter(Boolean);
+      .filter(Boolean)
+      .concat(untrackedFiles());
     if (changed.length === 0) return false;
     // Anything at the repo root means RUN, before any other test. That is where the files deciding
     // what lint reports live — `eslint.config.mjs`, `tsconfig.json`, `package.json`, and the

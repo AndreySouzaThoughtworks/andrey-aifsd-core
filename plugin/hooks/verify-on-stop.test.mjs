@@ -155,11 +155,34 @@ const dirtyAsset = (dir) => {
 };
 
 test("skips the run when nothing lint-able changed", () => {
-  // A turn that only touched a screenshot shouldn't pay for a full lint pass. The file must be
-  // TRACKED and modified: an untracked one isn't dirty by this hook's definition, so an untracked
-  // fixture would pass this test with the extension filter deleted.
+  // A turn that only touched a screenshot shouldn't pay for a full lint pass.
   const dir = makeRepo({ dirty: false });
   dirtyAsset(dir);
+  assert.equal(run(dir, { verifyCmd: "sh -c 'exit 1'" }), null);
+});
+
+test("runs when the only change is a new untracked lint-able file", () => {
+  // Test-first work adds files before it modifies any; a gate that ignores untracked files never
+  // verifies a turn that only wrote a new test.
+  const dir = makeRepo({ dirty: false });
+  writeFileSync(join(dir, "new.test.ts"), "test('x', () => {});\n");
+  assert.equal(run(dir, { verifyCmd: "sh -c 'exit 1'" })?.decision, "block");
+});
+
+test("a new untracked asset alone still skips the run", () => {
+  const dir = makeRepo({ dirty: false });
+  mkdirSync(join(dir, "docs"));
+  writeFileSync(join(dir, "docs", "screenshot.png"), "png");
+  assert.equal(run(dir, { verifyCmd: "sh -c 'exit 1'" }), null);
+});
+
+test("git-ignored files do not count as changes", () => {
+  const dir = makeRepo({ dirty: false });
+  writeFileSync(join(dir, ".gitignore"), "build/\n");
+  git(dir, ["add", ".gitignore"]);
+  git(dir, ["commit", "-qm", "ignore build"]);
+  mkdirSync(join(dir, "build"));
+  writeFileSync(join(dir, "build", "out.js"), "x\n");
   assert.equal(run(dir, { verifyCmd: "sh -c 'exit 1'" }), null);
 });
 
