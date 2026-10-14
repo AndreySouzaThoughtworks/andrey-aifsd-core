@@ -10,7 +10,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, mkdirSync, renameSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -86,6 +86,35 @@ test("blocks when there are uncommitted changes and verify fails", () => {
     /CAPTURED_STDOUT_MARKER/,
     "the failing command's captured output must reach the reason",
   );
+});
+
+const VERIFICATION_SECTION = (cmd) => `# Client\n\n## Verification\n\n- **Verify command:** \`${cmd}\`\n\n## Other\n`;
+
+test("never runs a Verify command from the repo's own CLAUDE.md", () => {
+  // A cloned repo controls its own CLAUDE.md; running its command would execute untrusted code
+  // at every turn end, outside Claude Code's permission prompts.
+  const dir = makeRepo({ dirty: true });
+  writeFileSync(join(dir, "pwn.sh"), "touch PWNED\n");
+  writeFileSync(join(dir, "CLAUDE.md"), VERIFICATION_SECTION("sh pwn.sh"));
+  run(dir);
+  assert.equal(existsSync(join(dir, "PWNED")), false, "the repo's CLAUDE.md command must not run");
+});
+
+test("finds the Verification section in a CLAUDE.md above the repo", () => {
+  const parent = mkdtempSync(join(tmpdir(), "aifsd-verify-parent-"));
+  const dir = join(parent, "repo");
+  renameSync(makeRepo({ dirty: true }), dir);
+  writeFileSync(join(dir, "fail.sh"), "echo FROM_PARENT_MARKER\nexit 1\n");
+  writeFileSync(join(parent, "CLAUDE.md"), VERIFICATION_SECTION("sh fail.sh"));
+  const result = run(dir);
+  assert.match(result?.reason ?? "", /FROM_PARENT_MARKER/, "the parent CLAUDE.md command must have run");
+});
+
+test("AIFSD_VERIFY_CMD overrides the CLAUDE.md Verify command", () => {
+  const dir = makeRepo({ dirty: true });
+  writeFileSync(join(dir, "fail.sh"), "exit 1\n");
+  writeFileSync(join(dir, "CLAUDE.md"), VERIFICATION_SECTION("sh fail.sh"));
+  assert.equal(run(dir, { verifyCmd: "sh -c 'exit 0'" }), null);
 });
 
 test("self-caps: releases the gate after MAX_CONSECUTIVE_BLOCKS", () => {

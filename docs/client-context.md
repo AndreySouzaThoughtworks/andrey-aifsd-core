@@ -22,7 +22,7 @@ The core plugin never names a client. Everything client-specific comes from sect
 | `## Review routing` | per job | Reviewer agents or skills for security, architecture, types, tests | Built-in `/security-review` and `/code-review`; skip the rest and say so |
 | `## Domain references` | per domain | Client reference docs a skill may load | None |
 | | API standard | The client's normative API guidelines | Ask when a story defines an API |
-| `## Verification` | Verify command | Command the turn-end gate runs | `AIFSD_VERIFY_CMD`, else `pnpm lint` |
+| `## Verification` | Verify command | Command the turn-end gate runs unprompted; read only from a folder-level CLAUDE.md above the repo (never the repo's own, never an `@`-imported file) | `pnpm lint`; `AIFSD_VERIFY_CMD` overrides both |
 | `## Production support` | Observability, Log query, Environment, Auth errors, Retention | Where and how to read production telemetry | Ask; never guess an environment name |
 | | Runbook index, Config fix, Ship path | Repo docs for incident handling, config changes and release | The repo's `docs/` |
 | | Investigation corpus | Where per-incident notes go | `.claude/prod-support/<ticket>/` |

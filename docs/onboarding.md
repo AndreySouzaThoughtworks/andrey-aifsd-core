@@ -39,7 +39,7 @@ Add the sections the client needs to its CLAUDE.md (a folder-level CLAUDE.md abo
 
 `/spec` gets the required spec structure, including Rollout, from its own `templates/change.md`. A target-repository template contributes only repository-specific additions.
 
-The verify gate (`verify-on-stop`) runs the repo's existing lint script automatically; no wiring, no extra package.
+The verify gate (`verify-on-stop`) runs `AIFSD_VERIFY_CMD` if set, else the `## Verification` Verify command from the nearest folder-level CLAUDE.md above the repo (a repo's own CLAUDE.md is ignored, since a cloned repo controls it), else the repo's `pnpm lint`; no wiring, no extra package.
 
 ## Knobs (environment variables)
 

@@ -2,16 +2,41 @@
 // Stop-hook verification gate: blocks turn-end while the repo's lint gate reports
 // issues, but only when there are uncommitted changes. Plugin-safe (uses the
 // decision:"block" JSON path, not exit 2) and self-capping (won't loop forever).
-// Override the command with AIFSD_VERIFY_CMD (e.g. "pnpm check").
+// Command: AIFSD_VERIFY_CMD, else the `## Verification` Verify command in the nearest CLAUDE.md
+// in a folder above the repo, else "pnpm lint". The repo's own CLAUDE.md is never read: a cloned
+// repo controls it, and this command runs unprompted at every turn end.
 
 import { execFileSync, execSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync, mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { extname, join, resolve } from "node:path";
+import { dirname, extname, join, resolve } from "node:path";
 
 const DEFAULT_VERIFY_CMD = "pnpm lint";
 const MAX_CONSECUTIVE_BLOCKS = Number(process.env.AIFSD_VERIFY_MAX_BLOCKS ?? 3);
-const VERIFY_CMD = process.env.AIFSD_VERIFY_CMD ?? DEFAULT_VERIFY_CMD;
+
+// shortcut: `@path` imports inside CLAUDE.md are not followed; put `## Verification` in the CLAUDE.md itself.
+const repoRoot = () => {
+  try {
+    return execFileSync("git", ["rev-parse", "--show-toplevel"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+  } catch {
+    return process.cwd();
+  }
+};
+
+const verifyCmdFromInstructions = () => {
+  for (let dir = dirname(repoRoot()); ; dir = dirname(dir)) {
+    try {
+      const section = readFileSync(join(dir, "CLAUDE.md"), "utf8")
+        .split(/^## /m)
+        .find((part) => part.startsWith("Verification"));
+      const cmd = section?.match(/\*\*Verify command:\*\*\s*`([^`]+)`/)?.[1];
+      if (cmd) return cmd;
+    } catch {}
+    if (dirname(dir) === dir) return undefined;
+  }
+};
+
+const VERIFY_CMD = process.env.AIFSD_VERIFY_CMD ?? verifyCmdFromInstructions() ?? DEFAULT_VERIFY_CMD;
 const VERIFY_OUTPUT_TAIL = 1500;
 // Sentinel in the counter file: this session gave up on the gate. Negative, so no block count reaches it.
 const RELEASED = -1;
