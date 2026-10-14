@@ -1,0 +1,8 @@
+# GitHub Issues adapter
+
+- **Hidden content.** An issue has a body, comments, labels, an optional type, a parent and sub-issues — no custom fields. Read them in one call: `gh issue view <n> --json title,body,labels,issueType,comments,parent,subIssues,blockedBy,blocking`. A short body with the real narrative in comments is the GitHub form of a blank-looking ticket.
+- **No restricted comments.** Every comment is as visible as the body to anyone who can see the repository. Technical detail that would go in a restricted comment on other trackers goes to the spec home or Shared notes home instead — never a comment.
+- **Body is Markdown.** Write with `gh issue edit <n> --body-file <file>` (or `gh issue create --body-file`); passing a long body inline through the shell mangles backticks and `$`.
+- **Link direction.** "A is blocked by B" → `gh issue edit A --add-blocked-by B` (or `--add-blocking` on B). Re-read A with `--json blockedBy` and confirm B is listed there, not under `blocking`. Sub-issues: `--parent` / `--add-sub-issue`.
+- **Issue types.** `--type <name>` works only where the owner has issue types configured (organisations); a personal repository has none. Where types are absent, carry the kind as a label (`type:story`, `type:task`, `type:bug`, `type:spike`) — create the label first with `gh label create` if `gh label list` lacks it.
+- **Transitions** are open/closed only: `gh issue close <n> --reason completed|"not planned"` and `gh issue reopen <n>`. Any workflow state beyond that (ready, in progress) is a label or a project field — list them before setting one; never invent a state.
