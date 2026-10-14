@@ -1,6 +1,6 @@
 ---
 name: prod-support
-description: End-to-end playbook for investigating a production issue on a service you deliver. Read and route the ticket, run a directed, hypothesis-driven investigation, reproduce, ship a fix, and record findings in a local handover corpus. Use whenever a support ticket is escalated, a customer-reported production bug is routed to you, you paste or mention a support ticket key, or someone says "prod support", "investigate this prod issue", "prod bug", "production incident", or references a prod regression.
+description: Playbook for investigating a production issue on a service you deliver: route the ticket, run a hypothesis-driven investigation, reproduce, ship a fix, record findings in a local handover corpus. Use when a support ticket is escalated, a customer-reported production bug reaches you, you mention a support ticket key, or someone says "prod support", "prod bug", "production incident" or "investigate this prod issue".
 user-invocable: true
 argument: "{TICKET} — the support ticket key (optional)"
 ---

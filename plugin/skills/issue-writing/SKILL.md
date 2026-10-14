@@ -1,6 +1,6 @@
 ---
 name: issue-writing
-description: Author, refine or review an issue-tracker ticket (Jira, GitHub Issues, Linear, …) as the work kind it actually is — Story, Task, Bug or Spike — each against its own template and its own bar, then publish it safely to the client's tracker. Use when writing a ticket from scratch or taking one from an epic, when refining or rewriting one that reads like an implementation checklist, when splitting one, when checking a Story against the Definition of Ready, when recording a defect with impact, expected and actual behaviour and a reproduction, when framing a timeboxed investigation or closing one out with its findings, or when reviewing a ticket for undecided rules, untraceable scope bullets or hidden test permutations. Use it for any write to a ticket, however small — adding or renumbering an acceptance criterion, editing a description or a Technical Note, populating a custom field, raising a follow-up — and for a write made while implementation is already under way. Grooming-phase tool; the /slice loop consumes a ticket rather than refining one.
+description: Author, refine or review an issue-tracker ticket (Jira, GitHub Issues, Linear) as the work kind it is — Story, Task, Bug or Spike — against its own template, then publish it safely to the client's tracker. Use when writing, splitting or refining a ticket, when one reads like an implementation checklist, when checking a Story against the Definition of Ready, and for any write to a ticket, however small, even mid-implementation.
 ---
 # Issue writing
 

@@ -1,6 +1,6 @@
 ---
 name: audit-flow
-description: Periodic health audit of the aifsd-core flow itself (the plugin's skills/agents/hooks) — distinct from reviewing a user's code. Runs the deterministic consistency guard, then a judgment pass for rule overlap / conflict / coverage gaps / doc bloat across skills, hooks, and senior-review-lens lenses, and emits a report of proposed trims and fixes. Use before an aifsd-core release, when the flow feels bloated, after several skills/rules have been added, or when the user says "audit the flow", "is the flow still coherent", "trim the flow". Propose, never silently write; route flow changes as PRs like learn-flow.
+description: Periodic health audit of the aifsd-core flow itself (skills, agents, hooks), not of user code: runs the consistency guard, then a judgment pass for overlap, conflict, gaps and bloat, and proposes trims. Use before an aifsd-core release, when the flow feels bloated, after adding skills or rules, or on "audit the flow", "is the flow still coherent", "trim the flow". Propose, never silently write.
 ---
 # audit-flow — keep the flow coherent and trim
 

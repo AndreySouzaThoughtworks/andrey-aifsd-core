@@ -1,6 +1,6 @@
 ---
 name: prose-writing
-description: Run the construction, relevance and placement pass over prose that outlives the conversation — commit subjects and bodies, PR titles and bodies, code comments, markdown docs, spec sections, skill and agent instructions, frontmatter descriptions, error messages, tracker tickets. Use before writing or editing any of those, and before staging a docs change. Catches walk-up framing, negation-contrast padding, negative-space claims, triplets and aphorisms written for cadence, a section introducing the section below it, restatement of what another file already owns, inferences written as facts, and over-correction into note form.
+description: Construction, relevance and placement pass over prose that outlives the conversation: commit messages, PR titles and bodies, code comments, markdown docs, spec sections, skill and agent instructions, frontmatter descriptions, error messages, tracker tickets. Use before writing or editing any of those, and before staging a docs change. Catches padding, cadence-driven triplets, restated ownership, inferences written as facts and over-compression.
 ---
 
 # /prose-writing — the pass durable prose goes through before it lands

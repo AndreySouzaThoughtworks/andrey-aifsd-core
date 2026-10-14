@@ -1,6 +1,6 @@
 ---
 name: story-drift
-description: Check whether a groomed Story or Task has drifted before kickoff — read its linked and related tickets, its epic's siblings, its working docs, and the decision records, contracts and specs touching its surface, and report only what makes the ticket's text wrong now. Flags criteria that are contradicted, superseded, resolved elsewhere or unclear enough to block, proposes replacement text, and walks each finding with the user one at a time; the user decides every change. A ticket in good shape gets a clean result. Read-only until the user approves a write.
+description: Check whether a groomed Story or Task has drifted before kickoff: read its linked tickets, epic siblings, working docs, decision records, contracts and specs, and report only what makes the ticket's text wrong now, with replacement text. Use before starting a groomed ticket or when asked whether a ticket is still accurate. Walks findings one at a time; read-only until the user approves a write.
 ---
 # /story-drift — check a ticket for drift before kickoff
 

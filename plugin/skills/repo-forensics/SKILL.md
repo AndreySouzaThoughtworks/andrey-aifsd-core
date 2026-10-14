@@ -1,6 +1,6 @@
 ---
 name: repo-forensics
-description: Inspect-first pass before changing existing code — name the 2–3 surfaces that matter, separate what the repo verifies from what you're inferring, mark where surfaces disagree, name what could break, and stop at the smallest safe next step. Use before editing existing code, when the user says "inspect first" / "don't implement yet" / "before you change anything" / "what's actually true here" / "what could break", when docs, tests, config, or behaviour may disagree, or when an answer sounds confident but nothing was actually read. Runs BEFORE a change exists — distinct from senior-review-lens (structure, post-change), code-reviewer (correctness, pre-PR) and prod-support (incident diagnosis).
+description: Inspect-first pass before changing existing code: name the surfaces that matter, separate verified from inferred, mark disagreements, name what could break, stop at the smallest safe step. Use before editing existing code, on "inspect first", "don't implement yet", "what's actually true here", "what could break", or when docs, tests and behaviour may disagree. Runs before a change exists.
 ---
 # repo-forensics — make current repo reality inspectable before changing it
 

@@ -1,6 +1,6 @@
 ---
 name: learn-flow
-description: Reflect at a session break and capture what's worth carrying forward, routed by scope — flow-level lessons (about an aifsd-core skill/agent/hook/recipe, or a cross-repo convention) become a change proposal against the aifsd-core plugin repo so every install benefits; client-specific lessons go to the client's CLAUDE.md overlay; repo-specific lessons go to that repo's CLAUDE.md; personal preferences to your global CLAUDE.md; recurring deterministic mistakes become an eslint rule in the repo's config. Use when the user types /learn-flow, says "what did we learn" / "lessons learned" / "let's capture this", or at the end of a /slice or /spec session that hit non-trivial friction. Propose, never silently write.
+description: Reflect at a session break and route each lesson by scope: flow-level to an aifsd-core change proposal, client-level to the client's CLAUDE.md, repo-level to that repo's CLAUDE.md, personal to the global CLAUDE.md, recurring mistakes to a lint rule. Use on /learn-flow, "what did we learn", "lessons learned", "let's capture this", or after a /slice or /spec session with friction. Propose, never silently write.
 ---
 # learn-flow — capture lessons and improve the flow
 

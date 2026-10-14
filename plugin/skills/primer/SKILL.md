@@ -1,6 +1,6 @@
 ---
 name: primer
-description: Research a topic and produce a "primer" — a house-styled, WCAG-AA, single-file HTML explainer you can read top-to-bottom or skim. Fans out to the docs workspace / the tracker / the repos, labels every claim Verified or Inferred, gets sign-off on a section outline, then renders into the canonical template at plugin/skills/primer/templates/primer.html (or the client's own template). Use when the user asks for a primer, a "mental model" doc, an explainer, an onboarding/briefing doc, or "help me understand X" and wants a shareable artifact (not a chat answer). Not for one-page fact sheets, slide decks, or prose docs.
+description: Research a topic into a "primer": a single-file, WCAG-AA HTML explainer built from the docs, the tracker and the repos, every claim labelled Verified or Inferred, outline signed off first. Use when asked for a primer, a "mental model" doc, an explainer, an onboarding or briefing doc, or "help me understand X" as a shareable artifact. Not for fact sheets, decks or prose docs.
 ---
 # /primer — Research a topic into a house-styled HTML explainer
 
