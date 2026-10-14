@@ -28,7 +28,7 @@ Resolve these at the start:
 - **Verify commands** — normally `pnpm test` and `pnpm check`. If absent, use the repository's equivalents.
 - **Validator agents** — match the stack: the stack validators the client context names under `## Review routing`, informed by `## Stack recipes`. When none are named, 7.1 is skipped and the report says so.
 - **Spec path** — resolve one location per the `## Delivery notes` Spec placement rule: repo-hosted `docs/specs/{ticket-id}-*.md`, or external `{ticket-id}/spec.md` under the Shared notes home when the changed repository rejects planning artifacts.
-- **Agent notes** — `$LOCAL_NOTES/agent-notes/{ticket-id}.md`, where `LOCAL_NOTES` is the Local notes home under `## Delivery notes`, default `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/aifsd`. Machine-local scratch keeps executor notes out of the changed repository.
+- **Agent notes** — `$LOCAL_NOTES/agent-notes/{ticket-id}.md`, where `LOCAL_NOTES` is the Local notes home under `## Delivery notes`, default `~/.local/state/aifsd`. Machine-local scratch keeps executor notes out of the changed repository.
 - **Shared handoff** — `{ticket-id}/handoff.md` under the Shared notes home (`## Delivery notes`, default `docs/aifsd/{ticket-id}/` in the repository being changed). `/slice` reads it when present and writes only context that must survive a session, agent, machine, or compaction boundary.
 - **Actor** — who this session writes as: a handle, plus a machine name where one person runs two (`<handle>`, `<handle>@<machine>`). One actor owns one `## Resume` block and writes no other.
 - **Domain references** — indexed in the client context's `## Domain references` section. Where a ticket touches a technology the client context carries a reference for, read it before dispatching the executor and pass it in the step 6.1 payload. Skip when nothing in the index matches.
@@ -203,7 +203,7 @@ Run these once over the complete slice. Every gate attaches to a merge point.
 Four guarantees, each of which fails silently or fatally without it:
 
 - **Detached at the tip.** The slice branch is checked out in the orchestrator's tree, and git refuses to hand the same branch to a second worktree. Detaching also pins the commit the gate's evidence names.
-- **Outside the repository.** A worktree nested inside one carrying a `pnpm-workspace.yaml` is captured by that workspace, and `pnpm install` then exits 0 having installed nothing. `LOCAL_NOTES` defaults under `CLAUDE_CONFIG_DIR` and a client may move it, so the path is asserted rather than trusted.
+- **Outside the repository.** A worktree nested inside one carrying a `pnpm-workspace.yaml` is captured by that workspace, and `pnpm install` then exits 0 having installed nothing. `LOCAL_NOTES` defaults to `~/.local/state/aifsd` and a client may move it, so the path is asserted rather than trusted.
 - **Re-runnable.** Every STOP in step 7 leaves the tree registered, and `git worktree add` answers an existing path with `fatal: ... already exists`. An existing tree is re-pointed at the tip, which is what carries a slice that stopped at a gate.
 - **`node_modules` is the repository's.** A fresh worktree has none, and a reused one can hold a real directory or a link to a tree that has moved — either would have the gate verify against dependencies the orchestrator does not have. The link's target is compared, not its existence.
 

@@ -27,6 +27,12 @@ claude plugin marketplace add ~/Develop/andrey-aifsd-core
 claude plugin install aifsd-core@aifsd-core
 ```
 
+Allow the machine-local notes folder once per profile. Claude Code treats `~/.claude/` and `.git/` as sensitive, so `/slice` keeps its notes and review worktrees in `~/.local/state/aifsd/`, which a session may only write once it is listed in the profile's `settings.json`:
+
+```json
+{ "permissions": { "additionalDirectories": ["~/.local/state/aifsd"] } }
+```
+
 Client plugins, MCP servers and the client's CLAUDE.md belong only in that client's profile and folder.
 
 ## Per-client setup

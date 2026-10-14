@@ -15,7 +15,7 @@ The core plugin never names a client. Everything client-specific comes from sect
 | | Incident tracker | Project or board that holds production incidents | Ask |
 | `## Commit convention` | Applies to, Subject, Ticket key, Branch, Remote, PR title | See `/aifsd-core:commit` | Plain Conventional Commits |
 | `## Delivery notes` | Shared notes home | Per-ticket handoff, progress, findings and spec files shared across machines and people, and how they are published | `docs/aifsd/{ticket-id}/` in the repo being changed |
-| | Local notes home | Machine-local scratch: agent notes, review worktrees, batch state | `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/aifsd/` |
+| | Local notes home | Machine-local scratch: agent notes, review worktrees, batch state | `~/.local/state/aifsd/` — allow it once per profile in `permissions.additionalDirectories` (see onboarding) |
 | | Spec placement | Per-repo rule for whether specs live in the repo | Ask on first spec in a repo, then record the answer here |
 | | Notes repo checkout | Local path of the notes repository when the Shared notes home lives in a separate repo; exported as `AIFSD_NOTES_REPO` | Clone it with `gh` |
 | `## Stack recipes` | per stack | Skills or docs to load when writing or reviewing code in that stack | None; use the repo's own conventions |
