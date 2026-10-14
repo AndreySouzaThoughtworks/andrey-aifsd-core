@@ -14,8 +14,14 @@ check() {
   if "$@"; then echo "ok   $name"; else echo "FAIL $name"; failures=$((failures + 1)); fi
 }
 
+readonly GREP_NO_MATCH=1
+
 free_of_client_terms() {
-  ! grep -qiE -f <(grep -v '^[[:space:]]*$' "$denylist")
+  local patterns
+  patterns="$(grep -v '^[[:space:]]*$' "$denylist" 2>/dev/null)"
+  [ -n "$patterns" ] || return 1
+  grep -qiE -e "$patterns"
+  [ $? -eq "$GREP_NO_MATCH" ]
 }
 
 ancestor_instructions() {
