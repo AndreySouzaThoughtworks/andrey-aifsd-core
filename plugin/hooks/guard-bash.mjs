@@ -30,8 +30,11 @@ const PLUS_FORCE = /\bgit\s+push\b[^|&;]*\s\+(\S*[\s/:])?(main|master)([\s'"]|$)
 
 const CATASTROPHIC = [
   {
+    // Recursive and force may come combined (`-Rf`), split (`-r -f`) or long (`--recursive --force`),
+    // in any order, so each is a separate lookahead over the same command segment.
     pattern: new RegExp(
-      /\brm\s+(-[a-z]*r[a-z]*f|-[a-z]*f[a-z]*r)\b[^|&;]*\s/.source + HOME_OR_ROOT,
+      /\brm\b(?=[^|&;]*\s(-[a-zA-Z]*[rR][a-zA-Z]*|--recursive)\b)(?=[^|&;]*\s(-[a-zA-Z]*f[a-zA-Z]*|--force)\b)[^|&;]*\s/
+        .source + HOME_OR_ROOT,
     ),
     why: "recursive force-delete targeting / , ~ , $HOME, or /*",
   },
