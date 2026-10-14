@@ -1,0 +1,73 @@
+---
+name: audit-flow
+description: Periodic health audit of the aifsd-core flow itself (the plugin's skills/agents/hooks) — distinct from reviewing a user's code. Runs the deterministic consistency guard, then a judgment pass for rule overlap / conflict / coverage gaps / doc bloat across skills, hooks, and senior-review-lens lenses, and emits a report of proposed trims and fixes. Use before an aifsd-core release, when the flow feels bloated, after several skills/rules have been added, or when the user says "audit the flow", "is the flow still coherent", "trim the flow". Propose, never silently write; route flow changes as PRs like learn-flow.
+---
+# audit-flow — keep the flow coherent and trim
+
+Audits **the flow itself**, not your code. Over time flow accretes — skills, hooks, doc sections — start overlap, contradict, rot. This periodic top-down check that accreted set still hangs together. (Complement to `learn-flow` (`skills/learn-flow/`), which capture lessons bottom-up per session, and `senior-review-lens`, which audit product code.)
+
+Default to **trim**: win come from removing redundancy and resolving conflicts, not adding more.
+
+## When to invoke
+
+- Before cutting aifsd-core release.
+- After several skills / hooks landed.
+- When flow feel bloated, or user say "audit the flow" / "is this still coherent" / "trim it".
+
+## Step 1 — Deterministic guard (the mechanical floor)
+
+Run consistency checker, report findings, **quote its summary line verbatim** (the `aifsd-core audit: N skills, N agents, N hooks` line) as proof it ran. Reported result with no quoted output indistinguishable from guessed one. Same gate CI runs:
+
+```bash
+node scripts/audit/consistency.mjs
+```
+
+**Errors** — missing skill files, name/dir mismatches, dangling hook and marketplace references, wrong README counts, undocumented skills/agents. **Fix these mechanically** (not judgment calls) — or, if flow live in different checkout, file them. Don't proceed to Step 2 with guard red; coherent review need accurate inventory.
+
+**Warnings** — orphan hook files, skill whose `evals.md` carry no `## Deterministic Checks` fence (so `--lint` measure nothing for it), and two eval-measure traps: pipe inside table-cell code span (truncates rendered command), and measure keyed on word that also one of skill's own headings (can score failing run as pass). These do **not** turn guard red and are **not** mechanical: each need human to confirm real collision, because some intentional. Treat as input to Step 2, not drift to fix on sight.
+
+## Step 2 — Judgment pass (what a script can't see)
+
+Read current skills, agents, hooks, and `senior-review-lens` lenses, then look for these:
+
+- **Overlap / double coverage.** Two things enforcing same rule. Check skill steps against each other (e.g. same reviewer running at two checkpoints) and against `senior-review-lens` lenses; check verify/format/guard hooks don't fight skill step. (Verification gate just run repo's eslint — no bespoke rule set to dedupe.)
+- **Conflict.** Two rules pulling opposite ways, or hook fighting skill step.
+- **Coverage gaps.** Class of mistake nothing catch — name as candidate new rule (don't build here; that a proposal).
+- **Doc bloat.** Note/section now redundant with table or another doc (we trim these aggressively). Dangling cross-links, stale "we will…" language, duplicated explanations.
+- **Dead weight.** Skill/hook/check no longer earning its place.
+
+## Step 3 — Usage (be honest about what you can and can't know)
+
+**No skill-invocation telemetry** — don't claim usage numbers you can't measure. Use only real signals: git churn on flow repo, eslint-rule churn in consuming repos, and **what team reports** (the `learn-flow` channel). Where rule *looks* unused or over-broad, flag as question for team — never retire rule on inferred usage alone.
+
+## Step 4 — Report and propose
+
+Emit:
+
+```
+## Flow audit — <date>
+
+### Mechanical (consistency guard)
+- <drift found> → <fix> (or: clean)
+
+### Overlap / conflict / gaps
+- <finding> — <which pieces> — proposed resolution (trim X / merge X+Y / add Z)
+
+### Trim candidates
+- <doc/section/rule> — why it no longer earns its place
+
+### Usage questions for the team
+- <rule that looks unused/over-broad> — ask, don't assume
+
+### Dropped (considered, keeping)
+- <thing> — why it stays
+```
+
+**Propose, never silently write.** Mechanical drift fixes can apply directly (not judgment). Every trim/merge/retire of rule or doc is proposal: get sign-off, then route flow-level changes to the aifsd-core repo — local branch, or PR once the repo has a remote — same repo→release path `learn-flow` use, so change reach every install.
+
+## Anti-patterns
+
+- **Adding more than you remove.** Audit that only grow flow failed its job.
+- **Claiming usage you didn't measure.** No telemetry = ask team, don't infer.
+- **Retiring rule same session you flag it.** Propose, get sign-off, then PR.
+- **Skipping Step 1.** Judgment on drifted inventory is judgment on fiction.

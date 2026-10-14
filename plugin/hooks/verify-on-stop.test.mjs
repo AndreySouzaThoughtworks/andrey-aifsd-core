@@ -1,0 +1,216 @@
+// Behaviour check for the Stop-hook verification gate. Run: node --test plugin/hooks/
+// This hook BLOCKS turn-end, so its control flow is the highest-consequence untested code in the
+// plugin. Each test builds a throwaway git repo under the OS temp dir; nothing touches this repo.
+//
+// AIFSD_VERIFY_CMD is driven with a plain `sh` command rather than a pnpm script: the hook only
+// consults package.json for pnpm-shaped commands (verifyScriptIsAbsent), so a shell command
+// exercises the real verify → block → counter path without needing pnpm or a lint setup.
+
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
+import { randomUUID } from "node:crypto";
+import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const HOOK = join(dirname(fileURLToPath(import.meta.url)), "verify-on-stop.mjs");
+
+const git = (cwd, args) => execFileSync("git", args, { cwd, stdio: "ignore" });
+
+/**
+ * Throwaway git repo with one commit. `dirty` leaves an uncommitted change behind.
+ * `pkg: false` omits package.json, which the hook treats as "not my kind of repo" — see the
+ * dedicated test for that path.
+ */
+const makeRepo = ({ dirty, pkg = true, lint = "true" }) => {
+  const dir = mkdtempSync(join(tmpdir(), "aifsd-verify-test-"));
+  // `--template=` opts out of the user's global init.templateDir. Without it, git copies in the
+  // machine's pre-commit/pre-push hooks (signing, gitleaks) and they reject the commit below.
+  git(dir, ["init", "-q", "--template="]);
+  git(dir, ["config", "user.email", "t@example.com"]);
+  git(dir, ["config", "user.name", "t"]);
+  git(dir, ["config", "commit.gpgsign", "false"]);
+  writeFileSync(join(dir, "file.ts"), "const one = 1;\n");
+  if (pkg) writeFileSync(join(dir, "package.json"), JSON.stringify({ scripts: { lint } }));
+  git(dir, ["add", "."]);
+  git(dir, ["commit", "-qm", "init"]);
+  if (dirty) writeFileSync(join(dir, "file.ts"), "const two = 2;\n");
+  return dir;
+};
+
+const run = (cwd, { verifyCmd, maxBlocks, sessionId } = {}) => {
+  const out = execFileSync("node", [HOOK], {
+    cwd,
+    encoding: "utf8",
+    // The hook persists a block counter in tmpdir keyed by session_id, and those files outlive the
+    // run. A pid is not enough — pids get reused, and a recycled one inherits the old count and
+    // turns `block 1/3` into `block 2/3`. A uuid cannot collide.
+    input: JSON.stringify({ session_id: sessionId ?? `t-${randomUUID()}` }),
+    env: {
+      ...process.env,
+      ...(verifyCmd ? { AIFSD_VERIFY_CMD: verifyCmd } : {}),
+      ...(maxBlocks ? { AIFSD_VERIFY_MAX_BLOCKS: String(maxBlocks) } : {}),
+    },
+  });
+  return out ? JSON.parse(out) : null; // null = allowed (empty stdout)
+};
+
+test("allows a clean tree without running the verify command", () => {
+  // A failing command proves the tree check short-circuits before the command runs.
+  assert.equal(run(makeRepo({ dirty: false }), { verifyCmd: "sh -c 'exit 1'" }), null);
+});
+
+test("allows when the verify command passes", () => {
+  assert.equal(run(makeRepo({ dirty: true }), { verifyCmd: "sh -c 'exit 0'" }), null);
+});
+
+test("blocks when there are uncommitted changes and verify fails", () => {
+  // The marker lives in a SCRIPT, not in the command string. The reason interpolates VERIFY_CMD
+  // verbatim, so any marker written inline would match the echoed command rather than its captured
+  // output — an assertion that passes even if the hook stops forwarding output at all.
+  const dir = makeRepo({ dirty: true });
+  writeFileSync(join(dir, "fail.sh"), "echo CAPTURED_STDOUT_MARKER\nexit 1\n");
+  const result = run(dir, { verifyCmd: "sh fail.sh" });
+  assert.equal(result?.decision, "block");
+  assert.match(result.reason, /Verification gate/);
+  assert.match(result.reason, /block 1\/3/);
+  assert.doesNotMatch(
+    "sh fail.sh",
+    /CAPTURED_STDOUT_MARKER/,
+    "guard: the marker must not appear in the command text, or the next assertion is vacuous",
+  );
+  assert.match(
+    result.reason,
+    /CAPTURED_STDOUT_MARKER/,
+    "the failing command's captured output must reach the reason",
+  );
+});
+
+test("self-caps: releases the gate after MAX_CONSECUTIVE_BLOCKS", () => {
+  const dir = makeRepo({ dirty: true });
+  const opts = { verifyCmd: "sh -c 'exit 1'", maxBlocks: 2, sessionId: `cap-${randomUUID()}` };
+  assert.equal(run(dir, opts)?.decision, "block", "1st blocks");
+  assert.equal(run(dir, opts)?.decision, "block", "2nd blocks");
+  assert.equal(run(dir, opts), null, "3rd exceeds the cap and must allow, not loop forever");
+});
+
+test("the release is sticky: the gate stays down for the rest of the session", () => {
+  // It used to reset the counter on release, so the very next turn started counting from zero and
+  // the gate went block-block-block-release, block-block-block-release, forever. On a repo with
+  // pre-existing lint debt that is every turn, plus a full lint run each time.
+  const dir = makeRepo({ dirty: true });
+  const opts = { verifyCmd: "sh -c 'exit 1'", maxBlocks: 1, sessionId: `sticky-${randomUUID()}` };
+  assert.equal(run(dir, opts)?.decision, "block", "1st blocks");
+  assert.equal(run(dir, opts), null, "cap exceeded — releases");
+  assert.equal(run(dir, opts), null, "and stays released, rather than starting the loop again");
+
+  // A clean or asset-only turn in between must not wipe the sentinel: those paths reset the counter,
+  // and resetting a RELEASED session dropped it straight back into the block-block-block loop.
+  assert.equal(run(makeRepo({ dirty: false }), opts), null, "a clean turn allows");
+  assert.equal(run(dir, opts), null, "and the earlier release still holds");
+});
+
+/**
+ * Commits an asset, then modifies it — a TRACKED dirty file the linter has no opinion about.
+ * It lives in a subdirectory on purpose: anything at the repo root is in scope by definition
+ * (that's where lint's own config lives), so a root-level fixture would never exercise this path.
+ */
+const dirtyAsset = (dir) => {
+  mkdirSync(join(dir, "assets"), { recursive: true });
+  writeFileSync(join(dir, "assets", "shot.png"), "not really a png\n");
+  git(dir, ["add", "assets/shot.png"]);
+  git(dir, ["commit", "-qm", "asset"]);
+  writeFileSync(join(dir, "assets", "shot.png"), "still not a png\n");
+};
+
+test("skips the run when nothing lint-able changed", () => {
+  // A turn that only touched a screenshot shouldn't pay for a full lint pass. The file must be
+  // TRACKED and modified: an untracked one isn't dirty by this hook's definition, so an untracked
+  // fixture would pass this test with the extension filter deleted.
+  const dir = makeRepo({ dirty: false });
+  dirtyAsset(dir);
+  assert.equal(run(dir, { verifyCmd: "sh -c 'exit 1'" }), null);
+});
+
+/** Commits `file` under `dir`, then modifies it — a tracked dirty file at a known path. */
+const dirtyFile = (dir, file, body = "x\n") => {
+  mkdirSync(dirname(join(dir, file)), { recursive: true });
+  writeFileSync(join(dir, file), body);
+  git(dir, ["add", file]);
+  git(dir, ["commit", "-qm", `add ${file}`]);
+  writeFileSync(join(dir, file), `${body}// changed\n`);
+};
+
+test("skips when the change is outside the roots the repo's lint script names", () => {
+  // A typical service lints `{src,apps,libs,test}/**/*.ts`. A doc edit is not in that set, so a full
+  // eslint pass over the repo cannot fail for anything this turn did — running it is pure cost.
+  // Driven through `pnpm lint` on purpose: the scope is read from the SCRIPT the verify command
+  // names, so a bare `sh -c` command would never reach that lookup and the test would pass blind.
+  const dir = makeRepo({ dirty: false, lint: 'eslint "{src,apps,libs,test}/**/*.ts"' });
+  dirtyFile(dir, "docs/notes.md", "# hello\n");
+  assert.equal(run(dir, { verifyCmd: "pnpm lint" }), null);
+});
+
+test("runs when the change is inside those roots", () => {
+  const dir = makeRepo({ dirty: false, lint: 'eslint "{src,apps,libs,test}/**/*.ts"' });
+  dirtyFile(dir, "src/a.ts", "const a = 1;\n");
+  // No eslint installed in the fixture, so the script fails — which is the point: inside the roots
+  // the gate actually runs the command.
+  assert.equal(run(dir, { verifyCmd: "pnpm lint" })?.decision, "block");
+});
+
+test("a root-level config edit is in scope, whatever the roots say", () => {
+  // `eslint.config.mjs`, `.eslintrc.*`, `package.json` and `tsconfig.json` sit at the root, so they
+  // match no lint root — and they are exactly the files that change what lint reports.
+  // `.prettierrc` and `.eslintrc` carry NO extension, so the extension filter drops them too — a
+  // narrower rule keyed on file type would skip the gate on the very edits that change its verdict.
+  for (const config of ["eslint.config.mjs", "tsconfig.json", ".prettierrc", ".eslintrc"]) {
+    const dir = makeRepo({ dirty: false, lint: 'eslint "{src,apps,libs,test}/**/*.ts"' });
+    dirtyFile(dir, config, "{}\n");
+    assert.equal(run(dir, { verifyCmd: "pnpm lint" })?.decision, "block", `${config} must be in scope`);
+  }
+});
+
+test("a lint script naming no roots falls back to the extension filter", () => {
+  // `turbo run lint --continue` and `nx run-many -t lint` name no paths. Guessing would narrow the
+  // gate silently, so an unreadable script means: run it.
+  const dir = makeRepo({ dirty: false, lint: "turbo run lint --continue" });
+  dirtyFile(dir, "docs/notes.md", "# hello\n");
+  assert.equal(run(dir, { verifyCmd: "pnpm lint" })?.decision, "block");
+});
+
+test("still runs when a lint-able file changed alongside an asset", () => {
+  const dir = makeRepo({ dirty: true });
+  dirtyAsset(dir);
+  assert.equal(run(dir, { verifyCmd: "sh -c 'exit 1'" })?.decision, "block");
+});
+
+test("no-ops when the repo has no lint script", () => {
+  const dir = makeRepo({ dirty: true });
+  writeFileSync(join(dir, "package.json"), JSON.stringify({ scripts: {} }));
+  assert.equal(run(dir), null, "default `pnpm lint` with no such script must stand down");
+});
+
+test("no package.json stands the gate down even with an explicit non-pnpm override", () => {
+  // Pins current behaviour: verifyScriptIsAbsent() early-returns true on a missing package.json
+  // BEFORE it checks whether the command is pnpm-shaped, so AIFSD_VERIFY_CMD is not consulted here.
+  // Defensible (no package.json = not a JS repo) but it does mean the override is silently
+  // ignored. Change this test deliberately if that call is ever revisited.
+  const dir = makeRepo({ dirty: true, pkg: false });
+  assert.equal(run(dir, { verifyCmd: "sh -c 'exit 1'" }), null);
+});
+
+test("fails open on unusable stdin", () => {
+  const dir = makeRepo({ dirty: true });
+  for (const input of ["", "not json"]) {
+    const out = execFileSync("node", [HOOK], {
+      cwd: dir,
+      encoding: "utf8",
+      input,
+      env: { ...process.env, AIFSD_VERIFY_CMD: "sh -c 'exit 0'" },
+    });
+    assert.equal(out, "", `expected allow for stdin: ${input || "<empty>"}`);
+  }
+});

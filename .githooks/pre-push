@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+readonly DELETED_REF='^0+$'
+
+if ! command -v gitleaks >/dev/null 2>&1; then
+  echo "pre-push: gitleaks not found on PATH (brew install gitleaks)" >&2
+  exit 1
+fi
+
+remote="$1"
+while read -r _local_ref local_sha remote_ref _remote_sha; do
+  [[ "$local_sha" =~ $DELETED_REF ]] && continue
+  echo "pre-push: scanning commits for $remote_ref that $remote does not have yet"
+  gitleaks git --redact --no-banner --log-opts="$local_sha --not --remotes=$remote" .
+done

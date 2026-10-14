@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+store="${TRACKER_STORE:?TRACKER_STORE must point at the ticket store}"
+mkdir -p "$store/tickets" "$store/comments"
+log() { echo "$*" >> "$store/calls.log"; }
+
+usage() {
+  cat >&2 <<'EOF'
+tracker get <id>                         print the ticket (first line is the summary)
+tracker create <file>                    create a ticket from a file; prints the new id
+tracker update <id> <file>               replace the ticket with the file's content
+tracker comment <id> <file> [--restricted]
+EOF
+  exit 64
+}
+
+[ $# -ge 1 ] || usage
+verb="$1"; shift
+case "$verb" in
+  get)
+    [ $# -eq 1 ] || usage
+    log "get $1"
+    cat "$store/tickets/$1.md"
+    ;;
+  create)
+    [ $# -eq 1 ] || usage
+    id="DEMO-$(( $(ls "$store/tickets" | wc -l) + 1 ))"
+    cp "$1" "$store/tickets/$id.md"
+    log "create $id"
+    echo "$id"
+    ;;
+  update)
+    [ $# -eq 2 ] || usage
+    [ -f "$store/tickets/$1.md" ] || { echo "no such ticket: $1" >&2; exit 1; }
+    cp "$2" "$store/tickets/$1.md"
+    log "update $1"
+    ;;
+  comment)
+    [ $# -ge 2 ] || usage
+    visibility="public"
+    [ "${3:-}" = "--restricted" ] && visibility="restricted"
+    cat "$2" >> "$store/comments/$1.$visibility.md"
+    log "comment $1 $visibility"
+    ;;
+  *) usage ;;
+esac

@@ -1,0 +1,5 @@
+node_modules/
+*.tsbuildinfo
+
+# code-reviewer's `memory: project` accumulates machine-specific paths and findings from whatever it last reviewed.
+.claude/

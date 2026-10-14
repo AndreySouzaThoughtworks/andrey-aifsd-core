@@ -1,0 +1,50 @@
+# aifsd-core
+
+Claude Code plugin for issue-driven, test-first delivery, with no client baked in. Specs define independently merging PR slices; implementation runs focused batches and applies verification, structural review and fresh-context correctness gates at every merge boundary. Everything client-specific — tracker, commit convention, notes homes, stack recipes, reviewers — comes from the client's CLAUDE.md: [docs/client-context.md](docs/client-context.md).
+
+## Install
+
+```text
+claude plugin marketplace add ~/Develop/andrey-aifsd-core
+/plugin install aifsd-core@aifsd-core
+/reload-plugins
+```
+
+Per-profile installs (one `CLAUDE_CONFIG_DIR` per client or account), prerequisites and daily use: **[docs/onboarding.md](docs/onboarding.md)**.
+
+## What's here
+
+This repo is **both** marketplace and plugin: the marketplace manifest lives at the root and the plugin lives in [`plugin/`](plugin/).
+
+| Path | What |
+|------|------|
+| `plugin/` | The plugin — 12 skills, 2 agents, 3 hooks, 2 commands. Inventory and call graph: [docs/skill-graph.md](docs/skill-graph.md). |
+| `.claude-plugin/marketplace.json` | Marketplace manifest; points at `./plugin`. |
+| `docs/` | [onboarding](docs/onboarding.md) · [skill-graph](docs/skill-graph.md) · [client-context](docs/client-context.md) · [claude-code-recommendations](docs/claude-code-recommendations.md) |
+| `scripts/` | `leak-guard.sh`, the consistency guard (`audit/`) and the eval runner (`eval/`). |
+| `tests/` | Shell tests for the leak guard, profile isolation and the behaviour of the commit commands and `issue-writing`. |
+| `.githooks/` | `pre-commit` runs the leak guard; `pre-push` runs gitleaks on the commits being pushed. |
+
+## Keeping client data out
+
+The core must never name a client. `scripts/leak-guard.sh` greps the repo for every pattern in a denylist and fails the commit on a match; it fails closed when the denylist is missing or empty.
+
+- The denylist lives at `~/.config/aifsd/denylist` (override with `AIFSD_DENYLIST`), one extended regex per line, and is **never committed** here: the list of client names is itself client data.
+- Enable the hooks once per clone: `git config core.hooksPath .githooks`. The pre-push hook needs `gitleaks` on `PATH`.
+- CI cannot run the leak guard, because the denylist exists only on your machine. CI runs the guard's own self-test and gitleaks; the client-term check happens at commit time locally.
+
+## Tests
+
+| Command | Needs a login | Proves |
+|---------|---------------|--------|
+| `bash tests/leak-guard.test.sh` | No | The guard rejects client terms and fails closed without a denylist |
+| `node --test plugin/hooks/*.test.mjs` | No | Hook behaviour |
+| `node scripts/audit/consistency.mjs` | No | Inventory, references and docs agree with the files |
+| `bash tests/profile-isolation.test.sh [project-dir]` | No | A fresh profile installs the core, loads no client plugin or MCP server, has its own login, and no CLAUDE.md above `project-dir` carries client terms |
+| `bash tests/commit-convention.test.sh` | Yes | `/aifsd-core:commit` falls back to Conventional Commits, applies a matching convention, and refuses a missing ticket key |
+| `bash tests/issue-writing.test.sh` | Yes | `issue-writing` refines and creates Stories in the full template, keeps implementation detail out of the behavioural sections and secrets out of the tracker |
+| `bash tests/issue-writing.test.sh --control` | Yes | Same scenarios with every skill disabled; expected to fail the checks the skill is responsible for |
+
+Login-bound tests skip with exit 3 when the profile is not logged in. Point them at another profile with `AIFSD_TEST_PROFILE=~/.claude-<name>`. Each run starts real `claude -p` sessions on that account.
+
+The verification gate (`verify-on-stop` hook) runs the repo's own lint at turn-end. Knobs: [docs/onboarding.md](docs/onboarding.md#knobs-environment-variables).

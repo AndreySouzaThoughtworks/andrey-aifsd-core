@@ -1,0 +1,28 @@
+name: audit
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  consistency:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Plugin consistency
+        run: node scripts/audit/consistency.mjs
+      - name: Hook behaviour tests
+        run: node --test plugin/hooks/*.test.mjs
+      - name: Script tests (the guard and the eval runner)
+        run: node --test scripts/audit/*.test.mjs scripts/eval/*.test.mjs
+      - name: Eval checks are runnable
+        run: node scripts/eval/run-checks.mjs --lint
+      - name: Leak guard self-test
+        run: bash tests/leak-guard.test.sh
