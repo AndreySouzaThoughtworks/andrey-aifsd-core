@@ -27,4 +27,28 @@ expect_exit "missing denylist fails closed" 2 env AIFSD_DENYLIST="$work/absent" 
 : > "$work/empty"
 expect_exit "empty denylist fails closed" 2 env AIFSD_DENYLIST="$work/empty" "$guard" "$work/repo"
 
+printf 'acme\n(unclosed\n' > "$work/bad-denylist"
+expect_exit "invalid denylist pattern fails closed" 2 env AIFSD_DENYLIST="$work/bad-denylist" "$guard" "$work/repo"
+
+echo "locked" > "$work/repo/locked.md"
+chmod 000 "$work/repo/locked.md"
+expect_exit "unreadable file alone fails closed" 2 env AIFSD_DENYLIST="$work/denylist" "$guard" "$work/repo"
+echo "see ticket Acme-42" > "$work/repo/leak.md"
+expect_exit "a leak is reported even when another file is unreadable" 1 env AIFSD_DENYLIST="$work/denylist" "$guard" "$work/repo"
+rm -f "$work/repo/leak.md"
+chmod 600 "$work/repo/locked.md"
+
+git_repo="$work/git"
+git init -q --template= "$git_repo"
+printf 'ignored/\n' > "$git_repo/.gitignore"
+mkdir -p "$git_repo/ignored"
+echo "acme notes" > "$git_repo/ignored/scratch.md"
+git -C "$git_repo" add .gitignore
+expect_exit "in a repo, git-ignored files are not scanned" 0 env AIFSD_DENYLIST="$work/denylist" "$guard" "$git_repo"
+
+echo "acme leak" > "$git_repo/staged.md"
+git -C "$git_repo" add staged.md
+echo "clean now" > "$git_repo/staged.md"
+expect_exit "in a repo, the staged content is scanned, not the working copy" 1 env AIFSD_DENYLIST="$work/denylist" "$guard" "$git_repo"
+
 exit "$failures"

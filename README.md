@@ -27,7 +27,7 @@ This repo is **both** marketplace and plugin: the marketplace manifest lives at 
 
 ## Keeping client data out
 
-The core must never name a client. `scripts/leak-guard.sh` greps the repo for every pattern in a denylist and fails the commit on a match; it fails closed when the denylist is missing or empty.
+The core must never name a client. `scripts/leak-guard.sh` greps the staged, tracked content for every pattern in a denylist and fails the commit on a match; it fails closed when the denylist is missing, empty or invalid, or when the scan itself errors.
 
 - The denylist lives at `~/.config/aifsd/denylist` (override with `AIFSD_DENYLIST`), one extended regex per line, and is **never committed** here: the list of client names is itself client data.
 - Enable the hooks once per clone: `git config core.hooksPath .githooks`. The pre-push hook needs `gitleaks` on `PATH`.
