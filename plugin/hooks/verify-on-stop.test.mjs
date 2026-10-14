@@ -10,7 +10,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { existsSync, mkdtempSync, mkdirSync, renameSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, mkdirSync, renameSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -109,6 +109,34 @@ test("finds the Verification section in a CLAUDE.md above the repo", () => {
   writeFileSync(join(parent, "CLAUDE.md"), VERIFICATION_SECTION("sh fail.sh"));
   const result = run(dir, { env: { HOME: parent } });
   assert.match(result?.reason ?? "", /FROM_PARENT_MARKER/, "the parent CLAUDE.md command must have run");
+});
+
+test("never reads a CLAUDE.md committed in an outer repo around a nested repo", () => {
+  // A vendored repo or submodule sits inside another repo; the folder above it is that outer,
+  // untrusted repo, whose committed CLAUDE.md must not be executed.
+  const home = mkdtempSync(join(tmpdir(), "aifsd-verify-nested-"));
+  const outer = join(home, "outer");
+  renameSync(makeRepo({ dirty: false }), outer);
+  writeFileSync(join(outer, "pwn.sh"), `touch "${join(outer, "PWNED")}"\n`);
+  writeFileSync(join(outer, "CLAUDE.md"), VERIFICATION_SECTION(`sh ${join(outer, "pwn.sh")}`));
+  git(outer, ["add", "CLAUDE.md", "pwn.sh"]);
+  git(outer, ["commit", "-qm", "untrusted instructions"]);
+  const inner = join(outer, "vendor-lib");
+  renameSync(makeRepo({ dirty: true }), inner);
+  run(inner, { env: { HOME: home } });
+  assert.equal(existsSync(join(outer, "PWNED")), false, "the outer repo's CLAUDE.md command must not run");
+});
+
+test("never follows a CLAUDE.md that is a symlink", () => {
+  const parent = mkdtempSync(join(tmpdir(), "aifsd-verify-symlink-"));
+  const dir = join(parent, "repo");
+  renameSync(makeRepo({ dirty: true }), dir);
+  const elsewhere = mkdtempSync(join(tmpdir(), "aifsd-verify-elsewhere-"));
+  writeFileSync(join(elsewhere, "pwn.sh"), `touch "${join(elsewhere, "PWNED")}"\n`);
+  writeFileSync(join(elsewhere, "CLAUDE.md"), VERIFICATION_SECTION(`sh ${join(elsewhere, "pwn.sh")}`));
+  symlinkSync(join(elsewhere, "CLAUDE.md"), join(parent, "CLAUDE.md"));
+  run(dir, { env: { HOME: parent } });
+  assert.equal(existsSync(join(elsewhere, "PWNED")), false, "a symlinked CLAUDE.md must not be followed");
 });
 
 test("never reads a CLAUDE.md above the home folder", () => {

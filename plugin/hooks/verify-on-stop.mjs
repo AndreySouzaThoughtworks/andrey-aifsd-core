@@ -8,14 +8,16 @@
 // Folders above or outside home are never read either: other users may write there.
 
 import { execFileSync, execSync } from "node:child_process";
-import { existsSync, readFileSync, realpathSync, writeFileSync, mkdirSync, rmSync } from "node:fs";
+import { existsSync, lstatSync, readFileSync, realpathSync, writeFileSync, mkdirSync, rmSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { dirname, extname, join, resolve, sep } from "node:path";
 
 const DEFAULT_VERIFY_CMD = "pnpm lint";
 const MAX_CONSECUTIVE_BLOCKS = Number(process.env.AIFSD_VERIFY_MAX_BLOCKS ?? 3);
 const TEN_MINUTES_MS = 10 * 60 * 1000;
-const VERIFY_TIMEOUT_MS = Number(process.env.AIFSD_VERIFY_TIMEOUT_MS ?? TEN_MINUTES_MS);
+const requestedTimeoutMs = Number(process.env.AIFSD_VERIFY_TIMEOUT_MS);
+// Node reads 0 as "no timeout" and NaN as no limit at all, so only a positive number may replace the cap.
+const VERIFY_TIMEOUT_MS = Number.isFinite(requestedTimeoutMs) && requestedTimeoutMs > 0 ? requestedTimeoutMs : TEN_MINUTES_MS;
 
 // shortcut: `@path` imports inside CLAUDE.md are not followed; put `## Verification` in the CLAUDE.md itself.
 const repoRoot = () => {
@@ -35,12 +37,24 @@ const homeFolder = () => {
   }
 };
 
+// A folder inside any work tree belongs to a repository someone else may control (an outer repo
+// around a vendored one or a submodule), so only plain folders outside every repo are trusted.
+const insideGitWorkTree = (dir) => {
+  try {
+    return execFileSync("git", ["-C", dir, "rev-parse", "--is-inside-work-tree"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim() === "true";
+  } catch {
+    return false;
+  }
+};
+
 const verifyCmdFromInstructions = () => {
   const home = homeFolder();
   const insideHome = (dir) => dir === home || dir.startsWith(home + sep);
   for (let dir = dirname(repoRoot()); insideHome(dir); dir = dirname(dir)) {
     try {
-      const section = readFileSync(join(dir, "CLAUDE.md"), "utf8")
+      const file = join(dir, "CLAUDE.md");
+      if (insideGitWorkTree(dir) || lstatSync(file).isSymbolicLink()) continue;
+      const section = readFileSync(file, "utf8")
         .split(/^## /m)
         .find((part) => part.startsWith("Verification"));
       const cmd = section?.match(/\*\*Verify command:\*\*\s*`([^`]+)`/)?.[1];
