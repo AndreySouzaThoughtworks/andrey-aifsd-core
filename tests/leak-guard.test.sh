@@ -51,4 +51,18 @@ git -C "$git_repo" add staged.md
 echo "clean now" > "$git_repo/staged.md"
 expect_exit "in a repo, the staged content is scanned, not the working copy" 1 env AIFSD_DENYLIST="$work/denylist" "$guard" "$git_repo"
 
+history_repo="$work/history"
+git init -q --template= "$history_repo"
+git -C "$history_repo" config user.email t@example.com
+git -C "$history_repo" config user.name t
+git -C "$history_repo" config commit.gpgsign false
+echo "acme leak" > "$history_repo/notes.md"
+git -C "$history_repo" add notes.md
+git -C "$history_repo" commit -q -m leak
+echo "clean" > "$history_repo/notes.md"
+git -C "$history_repo" commit -q -am clean
+expect_exit "a revision argument scans that commit, so a leak removed later is still caught" 1 env AIFSD_DENYLIST="$work/denylist" "$guard" "$history_repo" HEAD~1
+expect_exit "a revision argument passes a clean commit" 0 env AIFSD_DENYLIST="$work/denylist" "$guard" "$history_repo" HEAD
+expect_exit "an unknown revision fails closed" 2 env AIFSD_DENYLIST="$work/denylist" "$guard" "$history_repo" no-such-rev
+
 exit "$failures"

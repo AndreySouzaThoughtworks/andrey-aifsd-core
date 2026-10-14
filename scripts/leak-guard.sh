@@ -7,6 +7,7 @@ readonly GREP_NO_MATCH=1
 
 denylist="${AIFSD_DENYLIST:-$HOME/.config/aifsd/denylist}"
 root="${1:-$(git rev-parse --show-toplevel)}"
+rev="${2:-}"
 
 patterns_file="$(mktemp)"
 trap 'rm -f "$patterns_file"' EXIT
@@ -17,7 +18,11 @@ if [ ! -s "$patterns_file" ]; then
 fi
 
 if git -C "$root" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  hits="$(git -C "$root" grep --cached -I -n -i -E -f "$patterns_file")"
+  if [ -n "$rev" ]; then
+    hits="$(git -C "$root" grep -I -n -i -E -f "$patterns_file" "$rev" --)"
+  else
+    hits="$(git -C "$root" grep --cached -I -n -i -E -f "$patterns_file")"
+  fi
 else
   hits="$(grep -rIniE --exclude-dir=.git -f "$patterns_file" "$root")"
 fi
