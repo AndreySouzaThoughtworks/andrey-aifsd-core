@@ -1,5 +1,5 @@
 node_modules/
 *.tsbuildinfo
 
-# code-reviewer's `memory: project` accumulates machine-specific paths and findings from whatever it last reviewed.
+# Local Claude Code state (settings.local.json, worktrees) for sessions working on this repo.
 .claude/
