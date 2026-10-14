@@ -1,20 +1,19 @@
 ---
 name: senior-review-lens
-description: Pre-flight self-audit with 8 structural lenses (cohesion, table-vs-inline, test pyramid, test realism, test descriptions, dead variants, type-system shift, framing depth) before committing non-trivial changes, before opening a PR, or before finalizing an impl-story step. Use whenever the user asks for code review, mentions "is this ready to push", asks to commit, asks to merge, finalizes a story step, or implicitly when about to make a structural decision (new exception class, new constant, new test, new ADR). Catches structural and cohesion design choices that correctness-focused reviewers (typical Code Reviewer / Integration Architect / Codex worktrees) miss.
+description: Pre-flight structural self-audit — lenses A–G (cohesion, table-vs-inline, test pyramid, test realism, test descriptions, dead variants, type-system shift) on a diff, plus H (framing depth) on an ADR or design doc. Use before committing a non-trivial change, before pushing or opening a PR, when asked "is this ready to push", or when adding an exception, constant, test or ADR.
 ---
 # Senior Review Lens
 
-Procedural pre-flight audit. Run 8 lenses below against diff (and, for Lens H, against ADR/design doc). Apply fixes BEFORE human reviewer see it.
+Procedural pre-flight audit. Run lenses A–G below against diff, plus Lens H against an ADR or design doc. Apply fixes BEFORE human reviewer see it.
 
-Lens does NOT replace correctness review (W1/W2/W3 worktrees do that). Also does NOT duplicate the mechanical validators a caller runs at its own validator gate — **hexagonal layer purity intentionally absent** because `backend-services:architecture-agent` (via `hexagonal-architecture-recipe`) already enforce layer boundaries, SDK wrapping, adapter quality, data boundaries, infrastructure coupling, controller architecture. This skill add perspective of **senior consultant / staff engineer / tech lead** asking: _"is this code well-designed beyond just legal? does each line serve a clear purpose? what would a senior reviewer push back on?"_
+Lens does NOT replace correctness review (the `code-reviewer` agent does that). Also does NOT duplicate the mechanical validators a caller runs at its own validator gate — **hexagonal layer purity intentionally absent** because the architecture validator named under `## Review routing` already enforce layer boundaries, SDK wrapping, adapter quality, data boundaries, infrastructure coupling, controller architecture. This skill add perspective of **senior consultant / staff engineer / tech lead** asking: _"is this code well-designed beyond just legal? does each line serve a clear purpose? what would a senior reviewer push back on?"_
 
 ## When to invoke
 
 | Trigger                                                          | Invoke           |
 | ---------------------------------------------------------------- | ---------------- |
-| Before `git commit` on a non-trivial change (>1 file or >20 LOC) | Full pass (A–G)  |
+| Before `git commit` on a non-trivial change (>1 file or >20 LOC) | Full pass (A–G; H only for an ADR or design doc) |
 | Before `git push` on a feature branch with a PR                  | Full pass (A–G)  |
-| Before finalizing an impl-story step                             | Full pass (A–G)  |
 | Adding a new domain type, exception class, port, adapter         | Lenses A + G     |
 | Adding a new test or test fixture                                | Lenses C + D + E |
 | Adding a lookup table / map / registry                           | Lens B           |
@@ -303,7 +302,7 @@ Verdict token goes on own line, by itself. Enumerating both in heading made verd
 - **Don't over-trigger.** 1-line typo fix doesn't need 8 lenses.
 - **Cite lens by letter** (A–H) in finding so user can map back to this checklist.
 - **Lens H is on different surface.** Runs against ADR/design doc, not `git diff`. Don't force it on code diff without decision document.
-- **3-worktree reviewers (W1 Code Reviewer, W2 Integration Architect, W3 Codex) catch correctness.** The caller's mechanical validators catch hexagonal layer violations and recipe conformance. This skill catches next level up: **structural design choices senior consultant would push back on.**
+- **The `code-reviewer` agent catches correctness.** The caller's mechanical validators catch hexagonal layer violations and recipe conformance. This skill catches next level up: **structural design choices senior consultant would push back on.**
 - **Cross-reference sibling-service precedents when available** to validate structural call.
 - **High signal-to-noise.** Output for human reading: one sentence per finding, action-oriented, no hedging or throat-clearing. Format: `<file:line> — <smell> — <structural alternative>`. Senior reviewers pack maximum signal into minimum words because their time is bottleneck and ambiguity wastes author's time. If right move is "drop X", say "drop X" — not "consider whether X is still needed". Confidence communicated by directness.
 
@@ -336,5 +335,5 @@ Lenses are **structural design** checks, not correctness checks. Use alongside c
 
 ## Related skills
 
-- `/slice` — primary caller. Invokes a full lens pass at three scopes: the batch diff, the complete slice at its merge boundary, and the merged ticket. Its validator gate runs the mechanical validators (production-code-agent, test-code-agent, architecture-agent) — hexagonal layer purity lives there, intentionally omitted from these lenses to avoid duplication.
+- `/slice` — primary caller. Invokes a full lens pass at three scopes: the batch diff, the complete slice at its merge boundary, and the merged ticket. Its validator gate runs the mechanical validators named under `## Review routing` — hexagonal layer purity lives there, intentionally omitted from these lenses to avoid duplication.
 - `/spec` — invokes Lens H (framing depth) inline at step 6 for each open decision, before user resolves it.

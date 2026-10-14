@@ -175,10 +175,10 @@ test("the typed agent form resolves a name that does exist", () => {
 });
 
 test("another plugin's namespaced skill is not treated as a dangling reference", () => {
-  // `backend-services:hexagonal-architecture-recipe` and friends live outside this repo, so the
+  // `stack-plugin:architecture-recipe` and friends live outside this repo, so the
   // guard cannot resolve them and must not pretend to.
   const dir = validRepo();
-  write(dir, "plugin/skills/alpha/SKILL.md", "---\nname: alpha\n---\n\n## Heading One\n\nSkill(backend-services:hexagonal-architecture-recipe) and Agent(threat-modeling:threat-modeler).\n");
+  write(dir, "plugin/skills/alpha/SKILL.md", "---\nname: alpha\n---\n\n## Heading One\n\nSkill(stack-plugin:architecture-recipe) and Agent(security-plugin:threat-modeler).\n");
   const { code, out } = runGuard(dir);
   assert.equal(code, 0, out);
   assert.doesNotMatch(out, /ERROR/);
