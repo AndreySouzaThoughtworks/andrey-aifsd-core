@@ -130,8 +130,9 @@ table, the Definition of Ready and the Definition of Done — belongs to Story a
 - Resolve every open question before the ticket reaches a Ready status. An open question is a
   grooming state: it either decides — the answer lands in the agreed outcome, or an ADR records it —
   or splits into its own ticket this one depends on.
-- Give every reference a resolvable URL and a line saying why it matters. A reader who has to open
-  the link to understand the ticket is reading an incomplete ticket.
+- Give every reference a resolvable URL and a line saying why it matters; build ticket links from the
+  `## Issue tracking` Ticket URL template when one is set. A reader who has to open the link to
+  understand the ticket is reading an incomplete ticket.
 - Scan for secrets, personal data, customer identifiers and internal detail before anything reaches
   the tracker.
 - Show the complete proposed text and get approval before any write.

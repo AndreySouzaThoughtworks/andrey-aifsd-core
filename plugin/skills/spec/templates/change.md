@@ -6,7 +6,7 @@ created: YYYY-MM-DD
 ---
 # PROJ-XXX — <short title>
 
-**Ticket:** <tracker URL for PROJ-XXX>
+**Ticket:** <tracker URL for PROJ-XXX, from the `## Issue tracking` Ticket URL template when set>
 
 ## Summary
 

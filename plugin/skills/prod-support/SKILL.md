@@ -25,7 +25,7 @@ For a support ticket raising a production issue on a service you deliver. Work a
 | Git-ignored scratch corpus | Investigation corpus | `.claude/prod-support/<TICKET>/` (must be in `.gitignore`) |
 | Deploy correlation | Deploy correlation | git log + release tags of the service repo |
 | Support ticket intake fields | Intake fields | read every populated field, not only `description` |
-| Projects to search for similar tickets | Similar tickets | the support project the ticket lives in |
+| Projects to search for similar tickets | Similar tickets | the `## Issue tracking` Incident tracker, else the project the ticket lives in |
 | Telephony / network capture stack | Call capture | Ask |
 
 ## Step 1 — Understand the ticket
