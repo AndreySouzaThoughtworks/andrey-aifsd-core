@@ -46,6 +46,7 @@ commit_count() { git -C "$1" rev-list --count HEAD; }
 committed_since() { [ "$(commit_count "$1")" -gt "$2" ]; }
 subject_matches() { grep -qE "$2" <<<"$(last_subject "$1")"; }
 subject_lacks() { ! grep -qE "$2" <<<"$(last_subject "$1")"; }
+asks_for_ticket() { grep -qiE '(ticket|key)' "$1" && grep -q '?' "$1"; }
 
 add_acme_convention() {
   cat > "$1/CLAUDE.md" <<'EOF'
@@ -79,6 +80,7 @@ add_acme_convention "$keyless"
 before="$(commit_count "$keyless")"
 run_commit "$keyless"
 check "matching convention, no key on branch: no commit made" test "$(commit_count "$keyless")" = "$before"
+check "matching convention, no key on branch: asks which ticket" asks_for_ticket "$keyless.out"
 
 other="$(new_repo other git@github.com:someone/demo.git feat/greeting)"
 add_acme_convention "$other"
