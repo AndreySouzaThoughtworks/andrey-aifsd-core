@@ -81,8 +81,11 @@ test -z "$(git -C "$WORKTREE" status --porcelain docs/specs 2>/dev/null)" && ech
 grep -iEc "CLAUDE.md|repository instructions|canonical" output.md   # scenario 13
 # The sixth read happened and named its source — expect >=1 on 14, 0 on 15, where no entry matches.
 grep -Ec "reference-graph|Domain references" output.md   # scenario 14 only
-# Material NFRs surface where they change the design: expect >=1 on 16 and 0 on 17.
-grep -iEc "stream|pagina|page size|rate.?limit|throttl" output.md   # scenarios 16 and 17
+# Material NFRs surface where they change the design. Scenario 16 needs both volume and abuse (each >=1);
+# scenario 17 must add none of the four generic categories (0).
+grep -iEc "stream|pagina|page size|batch" output.md   # scenario 16: volume
+grep -iEc "rate.?limit|throttl|429|quota" output.md   # scenario 16: abuse
+grep -iEc "observab|metric|alert|rate.?limit|throttl|concurren|locali|i18n|stream|pagina" output.md   # scenario 17
 ```
 
 ## Saturation Signals
