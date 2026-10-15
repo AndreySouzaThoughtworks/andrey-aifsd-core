@@ -31,6 +31,8 @@ The autonomous eval stays before the write checkpoint. Judge the drafted spec in
 | 13 | "Spec PROJ-213 in this repository." | `CLAUDE.md` points to `.ai-context/` files and a repository-specific canonical domain path; no separate context index exists. | Follows the repository-declared documents, uses the declared domain model, and does not propose creating context files. |
 | 14 | "Spec PROJ-214." | Ticket authors a `ui.*` page schema; the reference index carries a matching entry. | Takes the sixth load-context read, names the reference it read, and writes no AC that the technology has no field for. |
 | 15 | "Spec PROJ-215." | Ticket touches no technology the index carries an entry for. | Skips the sixth read and says so rather than reading every reference. |
+| 16 | "Spec PROJ-216: admins download every order as CSV." | ACs cover columns and filters only; a tenant can hold several hundred thousand orders and the export endpoint is public to admins. | The non-functional scan raises data volume (streaming or paging) and abuse (rate limit) as an AC, an Edge or an Open decision, because each changes the design. |
+| 17 | "Spec PROJ-217: slugify a title." | Pure string function, no I/O, no new surface. | The non-functional scan finds nothing material and adds no observability, rate-limit, concurrency or localization item. |
 
 ## Agent Prompt Templates
 
@@ -66,6 +68,7 @@ CONTEXT: {{PERSONA}}
 | Draft discipline | Writes before approval | Holds the complete draft until sign-off | No spec-file changes |
 | Single spec | Copies into both repositories | Selects one evidence-backed destination | Manual, scenario 12 |
 | Repository-owned context | Assumes fixed document paths | Starts from repository instructions and follows their canonical references without creating context files | Manual, scenario 13 |
+| Material non-functional scan | Ignores volume and abuse, or pads every spec with generic NFRs | Raises only the qualities that change an AC, an Edge or the Rollout | Deterministic, scenarios 16–17 |
 
 **Pass threshold:** skill wins at least two thirds of applicable signals and has no unsafe Rollout boundary.
 
@@ -78,6 +81,8 @@ test -z "$(git -C "$WORKTREE" status --porcelain docs/specs 2>/dev/null)" && ech
 grep -iEc "CLAUDE.md|repository instructions|canonical" output.md   # scenario 13
 # The sixth read happened and named its source — expect >=1 on 14, 0 on 15, where no entry matches.
 grep -Ec "reference-graph|Domain references" output.md   # scenario 14 only
+# Material NFRs surface where they change the design: expect >=1 on 16 and 0 on 17.
+grep -iEc "stream|pagina|page size|rate.?limit|throttl" output.md   # scenarios 16 and 17
 ```
 
 ## Saturation Signals
