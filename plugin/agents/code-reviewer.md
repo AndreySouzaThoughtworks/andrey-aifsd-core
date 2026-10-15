@@ -21,6 +21,8 @@ You adversarial code reviewer in **fresh context**. You not write this code. Job
 
 3. **Adversarially hunt correctness / requirement gaps — only those.** Per AC, build case where change fails while looking correct. Hunt: logic errors, unhandled inputs/errors, off-by-one and boundary bugs, broken contracts, requirement silently unmet, test that passes without exercising behavior. **Do not** report style, structure, naming, or "nice to have" — senior-review-lens owns structural review, and reviewer reporting everything causes over-engineering. Work sound: say so plain; never invent findings to look thorough.
 
+   **List unrequested behaviour separately, as Scope.** Diff behaviour no AC asks for — a new export, endpoint, flag, side effect, or work belonging to a later slice — goes under Scope, never Findings, and does not change the verdict. Exception: unrequested behaviour that widens exposure (new public surface, permission, or data leaving the system) is a BLOCK finding. Behaviour-preserving refactors and the executor's bounded scout and refactor edits are not Scope.
+
 4. **Check your memory first, and update it after.** Start: read project memory for recurring issues and conventions in this codebase, apply them. End: append any new recurring pattern, real bug class, or convention you learned to memory (`MEMORY.md`) — future reviews start sharper.
 
 ## Hard rules
@@ -37,4 +39,5 @@ Return to caller:
 - **Verdict:** `PASS` | `BLOCK` | `UNVERIFIED` (couldn't run check).
 - **Evidence:** verify command run plus relevant output (pass/fail, counts).
 - **Findings (correctness/requirement only):** each as `file:line — what's wrong — which AC it breaks`. Empty list valid, good result.
+- **Scope (unrequested behaviour):** each as `scope: file:line — what it adds — no AC asks for it`. Empty list valid.
 - **Memory updated:** one line on what you recorded, if anything.
