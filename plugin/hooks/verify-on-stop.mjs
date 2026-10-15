@@ -7,7 +7,7 @@
 // is never read: a cloned repo controls it, and this command runs unprompted at every turn end.
 // Folders above or outside home are never read either: other users may write there.
 
-import { execFileSync, execSync } from "node:child_process";
+import { execFileSync, execSync, spawn } from "node:child_process";
 import { existsSync, lstatSync, readFileSync, realpathSync, writeFileSync, mkdirSync, rmSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { dirname, extname, join, resolve, sep } from "node:path";
@@ -191,7 +191,35 @@ const verifyScriptIsAbsent = () => {
   return !pkg.scripts || !pkg.scripts[scriptName];
 };
 
-const main = () => {
+// The verify command runs in its own process group so a timeout can stop everything it started;
+// killing only the shell leaves linters and test workers running behind the next turn.
+const runVerify = () =>
+  new Promise((done) => {
+    const child = spawn(VERIFY_CMD, { shell: true, cwd: process.cwd(), detached: true, stdio: ["ignore", "pipe", "pipe"] });
+    let output = "";
+    let timedOut = false;
+    const keepTail = (chunk) => {
+      output = (output + chunk).slice(-VERIFY_OUTPUT_TAIL);
+    };
+    child.stdout.on("data", keepTail);
+    child.stderr.on("data", keepTail);
+    const timer = setTimeout(() => {
+      timedOut = true;
+      try {
+        process.kill(-child.pid, "SIGKILL");
+      } catch {}
+    }, VERIFY_TIMEOUT_MS);
+    child.on("error", (error) => {
+      clearTimeout(timer);
+      done({ passed: false, timedOut, output: String(error.message) });
+    });
+    child.on("close", (code) => {
+      clearTimeout(timer);
+      done({ passed: code === 0 && !timedOut, timedOut, output });
+    });
+  });
+
+const main = async () => {
   const input = readHookInput();
   const counter = counterFile(input.session_id);
 
@@ -208,27 +236,24 @@ const main = () => {
 
   if (released) allow();
 
-  try {
-    execSync(VERIFY_CMD, { stdio: "pipe", cwd: process.cwd(), timeout: VERIFY_TIMEOUT_MS });
+  const { passed, timedOut, output } = await runVerify();
+  if (passed) {
     resetCounter(counter);
     allow();
-  } catch (error) {
-    const blocks = bumpCounter(counter);
-    if (blocks > MAX_CONSECUTIVE_BLOCKS) {
-      writeFileSync(counter, String(RELEASED));
-      allow();
-    }
-    const output =
-      (error.stdout?.toString() ?? "") + (error.stderr?.toString() ?? "");
-    const timedOut = error.code === "ETIMEDOUT" || error.signal === "SIGTERM";
-    block(
-      (timedOut
-        ? `Verification gate (\`${VERIFY_CMD}\`) timed out after ${VERIFY_TIMEOUT_MS} ms — make it finish before ending the turn `
-        : `Verification gate (\`${VERIFY_CMD}\`) reported issues — fix them before ending the turn `) +
-        `(block ${blocks}/${MAX_CONSECUTIVE_BLOCKS}; the gate auto-releases after that). ` +
-        `Show the passing output as evidence once fixed.\n\n${output.slice(-VERIFY_OUTPUT_TAIL)}`,
-    );
   }
+  const blocks = bumpCounter(counter);
+  if (blocks > MAX_CONSECUTIVE_BLOCKS) {
+    writeFileSync(counter, String(RELEASED));
+    allow();
+  }
+  block(
+    `Verification gate (\`${VERIFY_CMD}\`) ` +
+      (timedOut
+        ? `timed out after ${VERIFY_TIMEOUT_MS} ms — make it finish before ending the turn `
+        : "reported issues — fix them before ending the turn ") +
+      `(block ${blocks}/${MAX_CONSECUTIVE_BLOCKS}; the gate auto-releases after that). ` +
+      `Show the passing output as evidence once fixed.\n\n${output.slice(-VERIFY_OUTPUT_TAIL)}`,
+  );
 };
 
 main();

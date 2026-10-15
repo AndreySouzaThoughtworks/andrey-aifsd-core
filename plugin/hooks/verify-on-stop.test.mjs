@@ -169,6 +169,24 @@ test("blocks with a timeout reason when the verify command hangs", () => {
   assert.match(result.reason, /timed out/);
 });
 
+test("a verify command that reads stdin gets end-of-input instead of hanging", () => {
+  const dir = makeRepo({ dirty: true });
+  assert.equal(run(dir, { verifyCmd: "cat >/dev/null && exit 0", env: { AIFSD_VERIFY_TIMEOUT_MS: "2000" } }), null);
+});
+
+test("a timeout also stops processes the verify command started", () => {
+  // Killing only the shell leaves its children running, so a timed-out lint keeps working behind
+  // the next turn's run.
+  const dir = makeRepo({ dirty: true });
+  const orphanMarker = join(dir, "ORPHAN");
+  run(dir, {
+    verifyCmd: `sh -c '(sleep 2; touch "${orphanMarker}") & sleep 5'`,
+    env: { AIFSD_VERIFY_TIMEOUT_MS: "300" },
+  });
+  execFileSync("sleep", ["3"]);
+  assert.equal(existsSync(orphanMarker), false, "the verify command's child must be stopped with it");
+});
+
 test("AIFSD_VERIFY_CMD overrides the CLAUDE.md Verify command", () => {
   const dir = makeRepo({ dirty: true });
   writeFileSync(join(dir, "fail.sh"), "exit 1\n");
